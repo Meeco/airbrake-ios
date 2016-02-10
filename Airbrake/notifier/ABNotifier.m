@@ -39,6 +39,8 @@ static BOOL __displayPrompt = YES;
 static NSString *__userName = @"Anonymous";
 static NSString *__envName = nil;
 static NSString *__noticePath = nil;
+static BOOL __suspended = NO;
+
 // constant strings
 static NSString * const ABNotifierHostName                  = @"airbrake.io";
 static NSString * const ABNotifierAlwaysSendKey             = @"AlwaysSendCrashReports";
@@ -129,6 +131,8 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
     @synchronized(self) {
         static BOOL token = YES;
         if (token) {
+            __suspended = false;
+            
             // store username
             __userName = username;
             
@@ -218,6 +222,31 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
         }
     }
 }
+
++ (void)stopNotifier {
+    @synchronized(self) {
+        __suspended = true;
+        
+        // Delete recorded
+        NSArray *paths = [ABNotifier pathsForAllNotices];
+        for (NSString *path in paths) {
+            [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        }
+    }
+}
+
++ (void)suspendSending {
+    @synchronized(self) {
+        __suspended = true;
+    }
+}
+
++ (void)resumeSending {
+    @synchronized(self) {
+        __suspended = false;
+    }
+}
+
 
 #pragma mark - accessors
 + (id<ABNotifierDelegate>)delegate {
@@ -507,6 +536,11 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
 
 + (void)postNoticeWithContentsOfFile:(NSString *)path {
     
+    if (__suspended) {
+        // Dont send
+        return;
+    }
+    
     // create url
     //API V3 iOS report https://api.airbrake.io/api/v3/projects/%d/ios-reports?key=API_KEY
     NSString *URLString = [NSString stringWithFormat:
@@ -767,7 +801,7 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
 
 #pragma mark - reachability change
 void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info) {
-    if ([ABNotifier isReachable:flags]) {
+    if ([ABNotifier isReachable:flags] && __suspended == false) {
         static dispatch_once_t token;
         dispatch_once(&token, ^{
             NSArray *paths = [ABNotifier pathsForAllNotices];

@@ -129,6 +129,21 @@ extern NSString * const ABNotifierDidPostNoticesNotification;
               displayUserPrompt:(BOOL)display;
 
 /*
+ This stops the Notifier, and clears logs
+ */
++ (void)stopNotifier;
+
+/*
+ Suspend sending logs (if currently able to send)
+ */
++ (void)suspendSending;
+
+/*
+ Resume sending logs (if currently suspended in sending logs)
+ */
++ (void)resumeSending;
+
+/*
  
  Methods to expose some variables used by the notifier.
  

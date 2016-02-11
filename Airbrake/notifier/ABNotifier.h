@@ -144,6 +144,11 @@ extern NSString * const ABNotifierDidPostNoticesNotification;
 + (void)resumeSending;
 
 /*
+ Post notices if any to post and allowed to
+ */
++ (void)postNotices;
+
+/*
  
  Methods to expose some variables used by the notifier.
  

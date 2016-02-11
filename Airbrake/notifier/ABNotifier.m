@@ -244,6 +244,29 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
 + (void)resumeSending {
     @synchronized(self) {
         __suspended = false;
+        [self postNotices];
+    }
+}
+
+static dispatch_once_t token;
++ (void)postNotices {
+    @synchronized(self) {
+        if (__suspended == false) {
+            dispatch_once(&token, ^{
+                NSArray *paths = [ABNotifier pathsForAllNotices];
+                if ([paths count]) {
+                    if ([[NSUserDefaults standardUserDefaults] boolForKey:ABNotifierAlwaysSendKey] ||
+                        !__displayPrompt) {
+                        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                            [ABNotifier postNoticesWithPaths:paths];
+                        });
+                    }
+                    else {
+                        [ABNotifier showNoticeAlertForNoticesWithPaths:paths];
+                    }
+                }
+            });
+        }
     }
 }
 
@@ -510,6 +533,8 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
         if ([delegate respondsToSelector:@selector(notifierDidPostNotices)]) {
             [delegate notifierDidPostNotices];
         }
+        // Once sent, allow the oportunity to send again
+        token = 0;
         [[NSNotificationCenter defaultCenter] postNotificationName:ABNotifierDidPostNoticesNotification object:self];
     });
 	
@@ -801,21 +826,7 @@ void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkR
 
 #pragma mark - reachability change
 void ABNotifierReachabilityDidChange(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info) {
-    if ([ABNotifier isReachable:flags] && __suspended == false) {
-        static dispatch_once_t token;
-        dispatch_once(&token, ^{
-            NSArray *paths = [ABNotifier pathsForAllNotices];
-            if ([paths count]) {
-                if ([[NSUserDefaults standardUserDefaults] boolForKey:ABNotifierAlwaysSendKey] ||
-                    !__displayPrompt) {
-                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                        [ABNotifier postNoticesWithPaths:paths];
-                    });
-                }
-                else {
-                    [ABNotifier showNoticeAlertForNoticesWithPaths:paths];
-                }
-            }
-        });
+    if ([ABNotifier isReachable:flags]) {
+        [ABNotifier postNotices];
     }
 }

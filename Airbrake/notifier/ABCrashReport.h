@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import <CrashReporter/CrashReporter.h>
+#import "CrashReporter.h"
 
 @interface ABCrashReport : NSObject
 @property (nonatomic, strong) PLCrashReporter *plCrashReporter;
